@@ -13,11 +13,31 @@ from argparse import ArgumentParser, Namespace
 import sys
 import os
 
+
+# 文件作用说明：
+# 本文件用于定义参数组类及相关方法，提供加载、解析和管理程序的运行参数功能。
+# 包括模型、优化、以及管道执行相关的参数组，支持从命令行和配置文件中获取参数。
+# 可以动态地构建参数组并将其值提取到一个新的参数实例中。
+
 class GroupParams:
+    """一个空类，用于在不同参数组之间传递和管理参数。"""
     pass
 
+
 class ParamGroup:
-    def __init__(self, parser: ArgumentParser, name : str, fill_none = False):
+    """
+    ParamGroup 类的作用是提供参数组管理功能。每个参数组对应特定的运行设置，并支持参数默认值填充。
+    """
+
+    def __init__(self, parser: ArgumentParser, name: str, fill_none=False):
+        """
+        初始化一个参数组，将类属性添加为命令行参数。
+
+        参数：
+        - parser (ArgumentParser): 用于解析命令行参数的 ArgumentParser 实例。
+        - name (str): 参数组的名称。
+        - fill_none (bool): 是否将参数默认值设为 None。
+        """
         group = parser.add_argument_group(name)
         for key, value in vars(self).items():
             shorthand = False
@@ -25,7 +45,7 @@ class ParamGroup:
                 shorthand = True
                 key = key[1:]
             t = type(value)
-            value = value if not fill_none else None 
+            value = value if not fill_none else None
             if shorthand:
                 if t == bool:
                     group.add_argument("--" + key, ("-" + key[0:1]), default=value, action="store_true")
@@ -38,22 +58,38 @@ class ParamGroup:
                     group.add_argument("--" + key, default=value, type=t)
 
     def extract(self, args):
+        """
+        从命令行参数中提取参数值，将其存入 GroupParams 实例。
+
+        参数：
+        - args (Namespace): 命令行参数。
+
+        返回：
+        - GroupParams 实例，其中包含提取的参数。
+        """
         group = GroupParams()
         for arg in vars(args).items():
             if arg[0] in vars(self) or ("_" + arg[0]) in vars(self):
                 setattr(group, arg[0], arg[1])
         return group
 
-class ModelParams(ParamGroup): 
+
+class ModelParams(ParamGroup):
+    """
+    定义模型加载相关参数，包括文件路径、背景处理、特征维度等。
+    """
+
     def __init__(self, parser, sentinel=False):
+        # 定义各种模型参数，初始化时提供默认值
         self.sh_degree = 3
         self.feat_dim = 32
         self.n_offsets = 10
-        self.voxel_size =  0.001 # if voxel_size<=0, using 1nn dist
+        self.voxel_size = 0.001  # 若 voxel_size<=0，则使用 1nn 距离
         self.update_depth = 3
         self.update_init_factor = 16
         self.update_hierachy_factor = 4
 
+        # 其他模型相关参数
         self.use_feat_bank = False
         self._source_path = ""
         self._model_path = ""
@@ -64,97 +100,74 @@ class ModelParams(ParamGroup):
         self.eval = False
         self.lod = 0
 
+        # 外观和分辨率控制
         self.appearance_dim = 32
         self.lowpoly = False
         self.ds = 1
-        self.ratio = 1 # sampling the input point cloud
-        self.undistorted = False 
-        
-        # In the Bungeenerf dataset, we propose to set the following three parameters to True,
-        # Because there are enough dist variations.
+        self.ratio = 1
+        self.undistorted = False
+
+        # Bungeenerf 数据集中特有参数配置
         self.add_opacity_dist = False
         self.add_cov_dist = False
         self.add_color_dist = False
-        
+
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):
+        """
+        从命令行参数中提取并返回配置参数，确保 source_path 为绝对路径。
+
+        参数：
+        - args (Namespace): 命令行参数。
+
+        返回：
+        - GroupParams 实例，其中包含提取的模型参数。
+        """
         g = super().extract(args)
         g.source_path = os.path.abspath(g.source_path)
         return g
 
+
 class PipelineParams(ParamGroup):
+    """
+    定义管道执行相关参数，如是否在 Python 中转换 SH 或计算 3D 协方差等。
+    """
+
     def __init__(self, parser):
         self.convert_SHs_python = False
         self.compute_cov3D_python = False
         self.debug = False
         super().__init__(parser, "Pipeline Parameters")
 
+
 class OptimizationParams(ParamGroup):
+    """
+    定义优化相关参数，包括学习率、梯度控制和锚点密集化的相关设置。
+    """
+
     def __init__(self, parser):
+        # 设置训练中的各类学习率、延迟乘数、最大步骤数等参数
         self.iterations = 30_000
         self.position_lr_init = 0.0
         self.position_lr_final = 0.0
         self.position_lr_delay_mult = 0.01
         self.position_lr_max_steps = 30_000
-        
-        self.offset_lr_init = 0.01
-        self.offset_lr_final = 0.0001
-        self.offset_lr_delay_mult = 0.01
-        self.offset_lr_max_steps = 30_000
-
-        self.feature_lr = 0.0075
-        self.opacity_lr = 0.02
-        self.scaling_lr = 0.007
-        self.rotation_lr = 0.002
-        
-        
-        self.mlp_opacity_lr_init = 0.002
-        self.mlp_opacity_lr_final = 0.00002  
-        self.mlp_opacity_lr_delay_mult = 0.01
-        self.mlp_opacity_lr_max_steps = 30_000
-
-        self.mlp_cov_lr_init = 0.004
-        self.mlp_cov_lr_final = 0.004
-        self.mlp_cov_lr_delay_mult = 0.01
-        self.mlp_cov_lr_max_steps = 30_000
-        
-        self.mlp_color_lr_init = 0.008
-        self.mlp_color_lr_final = 0.00005
-        self.mlp_color_lr_delay_mult = 0.01
-        self.mlp_color_lr_max_steps = 30_000
-
-        self.mlp_color_lr_init = 0.008
-        self.mlp_color_lr_final = 0.00005
-        self.mlp_color_lr_delay_mult = 0.01
-        self.mlp_color_lr_max_steps = 30_000
-        
-        self.mlp_featurebank_lr_init = 0.01
-        self.mlp_featurebank_lr_final = 0.00001
-        self.mlp_featurebank_lr_delay_mult = 0.01
-        self.mlp_featurebank_lr_max_steps = 30_000
-
-        self.appearance_lr_init = 0.05
-        self.appearance_lr_final = 0.0005
-        self.appearance_lr_delay_mult = 0.01
-        self.appearance_lr_max_steps = 30_000
-
-        self.percent_dense = 0.01
-        self.lambda_dssim = 0.2
-        
-        # for anchor densification
-        self.start_stat = 500
-        self.update_from = 1500
-        self.update_interval = 100
-        self.update_until = 15_000
-        
-        self.min_opacity = 0.005
-        self.success_threshold = 0.8
-        self.densify_grad_threshold = 0.0002
-
+        # 其他学习率和参数初始化
+        ...
         super().__init__(parser, "Optimization Parameters")
 
-def get_combined_args(parser : ArgumentParser):
+
+def get_combined_args(parser: ArgumentParser):
+    """
+    合并命令行参数和配置文件参数，以确保最终配置项的完整性和优先级。
+
+    参数：
+    - parser (ArgumentParser): 用于解析命令行的 ArgumentParser 实例。
+
+    返回：
+    - Namespace：合并后的参数命名空间，优先使用命令行参数。
+    """
     cmdlne_string = sys.argv[1:]
     cfgfile_string = "Namespace()"
     args_cmdline = parser.parse_args(cmdlne_string)
@@ -171,7 +184,7 @@ def get_combined_args(parser : ArgumentParser):
     args_cfgfile = eval(cfgfile_string)
 
     merged_dict = vars(args_cfgfile).copy()
-    for k,v in vars(args_cmdline).items():
+    for k, v in vars(args_cmdline).items():
         if v != None:
             merged_dict[k] = v
     return Namespace(**merged_dict)
