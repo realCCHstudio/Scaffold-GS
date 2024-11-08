@@ -23,10 +23,19 @@ from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 from scene.embedding import Embedding
 
+# 文件作用说明：
+# 本文件实现了 `GaussianModel` 类，用于表示场景中的高斯模型对象。该模型可以进行各种计算，包括
+# 生成、优化、更新和存储高斯对象的属性。主要用于场景渲染和三维场景表示学习。
+
     
 class GaussianModel:
-
+    """
+    GaussianModel 类用于定义场景中的高斯模型对象，包含高斯的属性和处理方法。
+    """
     def setup_functions(self):
+        """
+        设置模型中的各种激活和变换函数，包括缩放、方差、透明度和旋转。
+        """
         def build_covariance_from_scaling_rotation(scaling, scaling_modifier, rotation):
             L = build_scaling_rotation(scaling_modifier * scaling, rotation)
             actual_covariance = L @ L.transpose(1, 2)
@@ -58,6 +67,23 @@ class GaussianModel:
                  add_cov_dist : bool = False,
                  add_color_dist : bool = False,
                  ):
+        """
+        初始化高斯模型的参数和结构。
+
+        参数：
+        - feat_dim (int): 特征维度。
+        - n_offsets (int): 偏移数量。
+        - voxel_size (float): 体素大小。
+        - update_depth (int): 更新深度。
+        - update_init_factor (int): 初始更新因子。
+        - update_hierachy_factor (int): 层级更新因子。
+        - use_feat_bank (bool): 是否使用特征库。
+        - appearance_dim (int): 外观维度。
+        - ratio (int): 比率。
+        - add_opacity_dist (bool): 是否添加透明度距离。
+        - add_cov_dist (bool): 是否添加协方差距离。
+        - add_color_dist (bool): 是否添加颜色距离。
+        """
 
         self.feat_dim = feat_dim
         self.n_offsets = n_offsets
@@ -129,6 +155,9 @@ class GaussianModel:
 
 
     def eval(self):
+        """
+        设置模型为评估模式，禁用参数更新。
+        """
         self.mlp_opacity.eval()
         self.mlp_cov.eval()
         self.mlp_color.eval()
@@ -138,6 +167,9 @@ class GaussianModel:
             self.mlp_feature_bank.eval()
 
     def train(self):
+        """
+        设置模型为训练模式，允许参数更新。
+        """
         self.mlp_opacity.train()
         self.mlp_cov.train()
         self.mlp_color.train()
@@ -147,6 +179,12 @@ class GaussianModel:
             self.mlp_feature_bank.train()
 
     def capture(self):
+        """
+        捕获模型的当前状态，包括偏移、缩放、旋转、透明度和优化器状态。
+
+        返回：
+        - tuple: 包含模型状态的元组。
+        """
         return (
             self._anchor,
             self._offset,
@@ -161,6 +199,13 @@ class GaussianModel:
         )
     
     def restore(self, model_args, training_args):
+        """
+        恢复模型到之前捕获的状态。
+
+        参数：
+        - model_args: 捕获的模型参数。
+        - training_args: 训练参数。
+        """
         (self.active_sh_degree, 
         self._anchor, 
         self._offset,
@@ -177,6 +222,12 @@ class GaussianModel:
         self.optimizer.load_state_dict(opt_dict)
 
     def set_appearance(self, num_cameras):
+        """
+        设置模型的外观属性，用于多相机的训练或评估。
+
+        参数：
+        - num_cameras (int): 相机数量。
+        """
         if self.appearance_dim > 0:
             self.embedding_appearance = Embedding(num_cameras, self.appearance_dim).cuda()
 
@@ -233,6 +284,13 @@ class GaussianModel:
         return data
 
     def create_from_pcd(self, pcd : BasicPointCloud, spatial_lr_scale : float):
+        """
+        从三维点云数据中创建高斯模型。
+
+        参数：
+        - pcd (BasicPointCloud): 三维点云对象。
+        - spatial_lr_scale (float): 空间学习率缩放因子。
+        """
         self.spatial_lr_scale = spatial_lr_scale
         points = pcd.points[::self.ratio]
 
@@ -273,6 +331,12 @@ class GaussianModel:
 
 
     def training_setup(self, training_args):
+        """
+        设置训练相关的参数和优化器。
+
+        参数：
+        - training_args: 训练参数。
+        """
         self.percent_dense = training_args.percent_dense
 
         self.opacity_accum = torch.zeros((self.get_anchor.shape[0], 1), device="cuda")
@@ -362,6 +426,12 @@ class GaussianModel:
                                                         max_steps=training_args.appearance_lr_max_steps)
 
     def update_learning_rate(self, iteration):
+        """
+        根据当前迭代次数动态更新学习率。
+
+        参数：
+        - iteration (int): 当前迭代次数。
+        """
         ''' Learning rate scheduling per step '''
         for param_group in self.optimizer.param_groups:
             if param_group["name"] == "offset":
@@ -401,6 +471,12 @@ class GaussianModel:
         return l
 
     def save_ply(self, path):
+        """
+        将模型保存为 `.ply` 格式文件。
+
+        参数：
+        - path (str): 文件保存路径。
+        """
         mkdir_p(os.path.dirname(path))
 
         anchor = self._anchor.detach().cpu().numpy()
@@ -420,6 +496,12 @@ class GaussianModel:
         PlyData([el]).write(path)
 
     def load_ply_sparse_gaussian(self, path):
+        """
+        从 `.ply` 文件中加载稀疏高斯模型数据。
+
+        参数：
+        - path (str): `.ply` 文件路径。
+        """
         plydata = PlyData.read(path)
 
         anchor = np.stack((np.asarray(plydata.elements[0]["x"]),
@@ -567,6 +649,12 @@ class GaussianModel:
         return optimizable_tensors
 
     def prune_anchor(self,mask):
+        """
+        使用掩码移除低透明度或不需要的锚点。
+
+        参数：
+        - mask (Tensor): 掩码张量。
+        """
         valid_points_mask = ~mask
 
         optimizable_tensors = self._prune_anchor_optimizer(valid_points_mask)
@@ -735,6 +823,13 @@ class GaussianModel:
         self.max_radii2D = torch.zeros((self.get_anchor.shape[0]), device="cuda")
 
     def save_mlp_checkpoints(self, path, mode = 'split'):#split or unite
+        """
+        保存多层感知器 (MLP) 的检查点，用于后续的加载或推理。
+
+        参数：
+        - path (str): 保存路径。
+        - mode (str): 保存模式，'split' 表示分开保存，'unite' 表示统一保存。
+        """
         mkdir_p(os.path.dirname(path))
         if mode == 'split':
             self.mlp_opacity.eval()
@@ -791,6 +886,13 @@ class GaussianModel:
 
 
     def load_mlp_checkpoints(self, path, mode = 'split'):#split or unite
+        """
+        加载多层感知器 (MLP) 的检查点。
+
+        参数：
+        - path (str): 检查点路径。
+        - mode (str): 加载模式，'split' 表示分开加载，'unite' 表示统一加载。
+        """
         if mode == 'split':
             self.mlp_opacity = torch.jit.load(os.path.join(path, 'opacity_mlp.pt')).cuda()
             self.mlp_cov = torch.jit.load(os.path.join(path, 'cov_mlp.pt')).cuda()

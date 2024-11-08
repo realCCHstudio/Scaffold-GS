@@ -31,6 +31,9 @@ from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
 import cv2
 
+# 文件作用说明：
+# 本文件实现了场景数据读取器，支持加载 Colmap 和 Blender 格式的场景。
+# 主要功能包括相机参数解析、三维点云加载与存储等。
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -52,6 +55,15 @@ class SceneInfo(NamedTuple):
     ply_path: str
 
 def getNerfppNorm(cam_info):
+    """
+    计算场景的 NeRF++ 标准化参数，包括中心和对角线长度。
+
+    参数：
+    - cam_info: 相机信息列表。
+
+    返回：
+    - dict: 标准化参数，包括平移向量和半径。
+    """
     def get_center_and_diag(cam_centers):
         cam_centers = np.hstack(cam_centers)
         avg_cam_center = np.mean(cam_centers, axis=1, keepdims=True)
@@ -75,6 +87,17 @@ def getNerfppNorm(cam_info):
     return {"translate": translate, "radius": radius}
 
 def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
+    """
+        读取 Colmap 数据集中的相机信息，包括内外参数和图像信息。
+
+        参数：
+        - cam_extrinsics: 相机外参数据。
+        - cam_intrinsics: 相机内参数据。
+        - images_folder (str): 图像文件夹路径。
+
+        返回：
+        - list: 相机信息列表。
+    """
     cam_infos = []
     for idx, key in enumerate(cam_extrinsics):
         sys.stdout.write('\r')
@@ -119,6 +142,15 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
     return cam_infos
 
 def fetchPly(path):
+    """
+       从 .ply 文件中加载三维点云数据。
+
+       参数：
+       - path (str): .ply 文件路径。
+
+       返回：
+       - BasicPointCloud: 包含点、颜色和法向量的点云对象。
+    """
     plydata = PlyData.read(path)
     vertices = plydata['vertex']
     positions = np.vstack([vertices['x'], vertices['y'], vertices['z']]).T
@@ -130,6 +162,14 @@ def fetchPly(path):
     return BasicPointCloud(points=positions, colors=colors, normals=normals)
 
 def storePly(path, xyz, rgb):
+    """
+        将三维点云数据保存为 .ply 文件。
+
+        参数：
+        - path (str): 文件保存路径。
+        - xyz (np.array): 点云坐标数组。
+        - rgb (np.array): 点云颜色数组。
+    """
     # Define the dtype for the structured array
     dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
             ('nx', 'f4'), ('ny', 'f4'), ('nz', 'f4'),
@@ -147,6 +187,19 @@ def storePly(path, xyz, rgb):
     ply_data.write(path)
 
 def readColmapSceneInfo(path, images, eval, lod, llffhold=8):
+    """
+        从 Colmap 格式数据中读取场景信息，包括相机参数和三维点云。
+
+        参数：
+        - path (str): 场景路径。
+        - images (str): 图像文件夹名称。
+        - eval (bool): 是否为评估模式。
+        - lod (int): 多层次细节（LOD）参数。
+        - llffhold (int): 相机拆分间隔。
+
+        返回：
+        - SceneInfo: 场景信息。
+    """
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -207,6 +260,20 @@ def readColmapSceneInfo(path, images, eval, lod, llffhold=8):
     return scene_info
 
 def readCamerasFromTransforms(path, transformsfile, white_background, extension=".png", is_debug=False, undistorted=False):
+    """
+        从 Blender 格式的 JSON 文件中读取相机信息。
+
+        参数：
+        - path (str): 场景路径。
+        - transformsfile (str): JSON 文件名。
+        - white_background (bool): 是否使用白色背景。
+        - extension (str): 图像文件扩展名。
+        - is_debug (bool): 是否为调试模式。
+        - undistorted (bool): 是否执行去畸变处理。
+
+        返回：
+        - list: 相机信息列表。
+    """
     cam_infos = []
     with open(os.path.join(path, transformsfile)) as json_file:
         contents = json.load(json_file)
@@ -294,6 +361,19 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
     return cam_infos
 
 def readNerfSyntheticInfo(path, white_background, eval, extension=".png", ply_path=None):
+    """
+    从 NeRF Synthetic 数据集中读取场景信息。
+
+    参数：
+    - path (str): 场景路径。
+    - white_background (bool): 是否使用白色背景。
+    - eval (bool): 是否为评估模式。
+    - extension (str): 图像文件扩展名。
+    - ply_path (str): 点云文件路径。
+
+    返回：
+    - SceneInfo: 场景信息。
+    """
     print("Reading Training Transforms")
     train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", white_background, extension)
     print("Reading Test Transforms")
@@ -329,6 +409,7 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png", ply_pa
                            ply_path=ply_path)
     return scene_info
 
+# 定义场景加载器类型回调字典，用于指定不同数据集格式的加载函数
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender": readNerfSyntheticInfo,

@@ -13,14 +13,16 @@ import numpy as np
 import collections
 import struct
 
-CameraModel = collections.namedtuple(
-    "CameraModel", ["model_id", "model_name", "num_params"])
-Camera = collections.namedtuple(
-    "Camera", ["id", "model", "width", "height", "params"])
-BaseImage = collections.namedtuple(
-    "Image", ["id", "qvec", "tvec", "camera_id", "name", "xys", "point3D_ids"])
-Point3D = collections.namedtuple(
-    "Point3D", ["id", "xyz", "rgb", "error", "image_ids", "point2D_idxs"])
+# 文件作用说明：
+# 本文件定义了一系列函数和数据结构，用于读取和解析 COLMAP 数据集的相机模型、图像和三维点数据。
+# 这些工具帮助将 COLMAP 的二进制和文本格式转换为可处理的 Python 数据格式。
+
+CameraModel = collections.namedtuple("CameraModel", ["model_id", "model_name", "num_params"])
+Camera = collections.namedtuple("Camera", ["id", "model", "width", "height", "params"])
+BaseImage = collections.namedtuple("Image", ["id", "qvec", "tvec", "camera_id", "name", "xys", "point3D_ids"])
+Point3D = collections.namedtuple("Point3D", ["id", "xyz", "rgb", "error", "image_ids", "point2D_idxs"])
+
+# 定义相机模型类型
 CAMERA_MODELS = {
     CameraModel(model_id=0, model_name="SIMPLE_PINHOLE", num_params=3),
     CameraModel(model_id=1, model_name="PINHOLE", num_params=4),
@@ -34,48 +36,74 @@ CAMERA_MODELS = {
     CameraModel(model_id=9, model_name="RADIAL_FISHEYE", num_params=5),
     CameraModel(model_id=10, model_name="THIN_PRISM_FISHEYE", num_params=12)
 }
-CAMERA_MODEL_IDS = dict([(camera_model.model_id, camera_model)
-                         for camera_model in CAMERA_MODELS])
-CAMERA_MODEL_NAMES = dict([(camera_model.model_name, camera_model)
-                           for camera_model in CAMERA_MODELS])
+CAMERA_MODEL_IDS = {camera_model.model_id: camera_model for camera_model in CAMERA_MODELS}
+CAMERA_MODEL_NAMES = {camera_model.model_name: camera_model for camera_model in CAMERA_MODELS}
 
 
 def qvec2rotmat(qvec):
+    """
+    将四元数转换为旋转矩阵。
+
+    参数：
+    - qvec (np.array): 四元数数组。
+
+    返回：
+    - np.array: 旋转矩阵。
+    """
     return np.array([
-        [1 - 2 * qvec[2]**2 - 2 * qvec[3]**2,
-         2 * qvec[1] * qvec[2] - 2 * qvec[0] * qvec[3],
+        [1 - 2 * qvec[2] ** 2 - 2 * qvec[3] ** 2, 2 * qvec[1] * qvec[2] - 2 * qvec[0] * qvec[3],
          2 * qvec[3] * qvec[1] + 2 * qvec[0] * qvec[2]],
-        [2 * qvec[1] * qvec[2] + 2 * qvec[0] * qvec[3],
-         1 - 2 * qvec[1]**2 - 2 * qvec[3]**2,
+        [2 * qvec[1] * qvec[2] + 2 * qvec[0] * qvec[3], 1 - 2 * qvec[1] ** 2 - 2 * qvec[3] ** 2,
          2 * qvec[2] * qvec[3] - 2 * qvec[0] * qvec[1]],
-        [2 * qvec[3] * qvec[1] - 2 * qvec[0] * qvec[2],
-         2 * qvec[2] * qvec[3] + 2 * qvec[0] * qvec[1],
-         1 - 2 * qvec[1]**2 - 2 * qvec[2]**2]])
+        [2 * qvec[3] * qvec[1] - 2 * qvec[0] * qvec[2], 2 * qvec[2] * qvec[3] + 2 * qvec[0] * qvec[1],
+         1 - 2 * qvec[1] ** 2 - 2 * qvec[2] ** 2]
+    ])
+
 
 def rotmat2qvec(R):
+    """
+    将旋转矩阵转换为四元数。
+
+    参数：
+    - R (np.array): 旋转矩阵。
+
+    返回：
+    - np.array: 四元数。
+    """
     Rxx, Ryx, Rzx, Rxy, Ryy, Rzy, Rxz, Ryz, Rzz = R.flat
     K = np.array([
         [Rxx - Ryy - Rzz, 0, 0, 0],
         [Ryx + Rxy, Ryy - Rxx - Rzz, 0, 0],
         [Rzx + Rxz, Rzy + Ryz, Rzz - Rxx - Ryy, 0],
-        [Ryz - Rzy, Rzx - Rxz, Rxy - Ryx, Rxx + Ryy + Rzz]]) / 3.0
+        [Ryz - Rzy, Rzx - Rxz, Rxy - Ryx, Rxx + Ryy + Rzz]
+    ]) / 3.0
     eigvals, eigvecs = np.linalg.eigh(K)
     qvec = eigvecs[[3, 0, 1, 2], np.argmax(eigvals)]
     if qvec[0] < 0:
         qvec *= -1
     return qvec
 
+
 class Image(BaseImage):
+    """
+    表示 COLMAP 图像的类，继承自 BaseImage，提供将四元数转换为旋转矩阵的方法。
+    """
     def qvec2rotmat(self):
         return qvec2rotmat(self.qvec)
 
+
 def read_next_bytes(fid, num_bytes, format_char_sequence, endian_character="<"):
-    """Read and unpack the next bytes from a binary file.
-    :param fid:
-    :param num_bytes: Sum of combination of {2, 4, 8}, e.g. 2, 6, 16, 30, etc.
-    :param format_char_sequence: List of {c, e, f, d, h, H, i, I, l, L, q, Q}.
-    :param endian_character: Any of {@, =, <, >, !}
-    :return: Tuple of read and unpacked values.
+    """
+    从二进制文件中读取并解包下一个字节。
+
+    参数：
+    - fid: 文件对象。
+    - num_bytes (int): 读取的字节数。
+    - format_char_sequence (str): 格式字符序列。
+    - endian_character (str): 大小端符号。
+
+    返回：
+    - tuple: 解包后的值。
     """
     data = fid.read(num_bytes)
     return struct.unpack(endian_character + format_char_sequence, data)
@@ -85,6 +113,13 @@ def read_points3D_text(path):
     see: src/base/reconstruction.cc
         void Reconstruction::ReadPoints3DText(const std::string& path)
         void Reconstruction::WritePoints3DText(const std::string& path)
+    从文本文件中读取三维点云数据。
+
+    参数：
+    - path (str): 文件路径。
+
+    返回：
+    - tuple: 三维点的坐标、颜色和误差。
     """
     xyzs = None
     rgbs = None
@@ -127,6 +162,13 @@ def read_points3D_binary(path_to_model_file):
     see: src/base/reconstruction.cc
         void Reconstruction::ReadPoints3DBinary(const std::string& path)
         void Reconstruction::WritePoints3DBinary(const std::string& path)
+    从二进制文件中读取三维点云数据。
+
+    参数：
+    - path_to_model_file (str): 文件路径。
+
+    返回：
+    - tuple: 三维点的坐标、颜色和误差。
     """
 
 
@@ -156,6 +198,13 @@ def read_points3D_binary(path_to_model_file):
 def read_intrinsics_text(path):
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
+    从文本文件中读取相机内参信息。
+
+    参数：
+    - path (str): 文件路径。
+
+    返回：
+    - dict: 相机内参字典。
     """
     cameras = {}
     with open(path, "r") as fid:
@@ -182,6 +231,13 @@ def read_extrinsics_binary(path_to_model_file):
     see: src/base/reconstruction.cc
         void Reconstruction::ReadImagesBinary(const std::string& path)
         void Reconstruction::WriteImagesBinary(const std::string& path)
+    从二进制文件中读取相机外参信息。
+
+    参数：
+    - path_to_model_file (str): 文件路径。
+
+    返回：
+    - dict: 相机外参字典。
     """
     images = {}
     with open(path_to_model_file, "rb") as fid:
@@ -217,6 +273,13 @@ def read_intrinsics_binary(path_to_model_file):
     see: src/base/reconstruction.cc
         void Reconstruction::WriteCamerasBinary(const std::string& path)
         void Reconstruction::ReadCamerasBinary(const std::string& path)
+    从二进制文件中读取相机内参信息。
+
+    参数：
+    - path_to_model_file (str): 文件路径。
+
+    返回：
+    - dict: 相机内参字典。
     """
     cameras = {}
     with open(path_to_model_file, "rb") as fid:
@@ -244,6 +307,13 @@ def read_intrinsics_binary(path_to_model_file):
 def read_extrinsics_text(path):
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
+    从文本文件中读取相机外参信息。
+
+    参数：
+    - path (str): 文件路径。
+
+    返回：
+    - dict: 相机外参字典。
     """
     images = {}
     with open(path, "r") as fid:
@@ -273,10 +343,15 @@ def read_extrinsics_text(path):
 def read_colmap_bin_array(path):
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_dense.py
+    从 COLMAP 二进制文件读取数据数组。
 
-    :param path: path to the colmap binary file.
-    :return: nd array with the floating point values in the value
+    参数：
+    - path (str): 二进制文件路径。
+
+    返回：
+    - np.array: 读取的浮点数组。
     """
+    # 解析二进制文件内容并返回数组
     with open(path, "rb") as fid:
         width, height, channels = np.genfromtxt(fid, delimiter="&", max_rows=1,
                                                 usecols=(0, 1, 2), dtype=int)
