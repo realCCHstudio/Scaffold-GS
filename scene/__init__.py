@@ -18,7 +18,7 @@ from scene.gaussian_model import GaussianModel
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 
-
+#CCHSTUDIO提供本版本的中文注释
 # 文件作用说明：
 # 本文件定义了 Scene 类，用于加载和管理场景数据，包括训练和测试相机的加载。
 # 根据不同数据集类型（如 Colmap 和 Blender）配置场景，并在指定迭代时加载已训练的高斯模型。

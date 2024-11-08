@@ -13,6 +13,7 @@ import numpy as np
 import collections
 import struct
 
+#CCHSTUDIO提供本版本的中文注释
 # 文件作用说明：
 # 本文件定义了一系列函数和数据结构，用于读取和解析 COLMAP 数据集的相机模型、图像和三维点数据。
 # 这些工具帮助将 COLMAP 的二进制和文本格式转换为可处理的 Python 数据格式。

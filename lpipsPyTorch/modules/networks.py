@@ -7,7 +7,7 @@ from torchvision import models
 
 from .utils import normalize_activation
 
-
+#CCHSTUDIO提供本版本的中文注释
 # 文件作用说明：
 # 本文件定义了用于 LPIPS 计算的特征提取网络，包括 AlexNet、SqueezeNet 和 VGG16。
 # 每个网络类型被封装成类，具有特定的特征层和通道数设置。此外，还定义了用于线性变换的 LinLayers 类。

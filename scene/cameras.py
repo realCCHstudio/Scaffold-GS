@@ -14,6 +14,7 @@ from torch import nn
 import numpy as np
 from utils.graphics_utils import getWorld2View2, getProjectionMatrix
 
+#CCHSTUDIO提供本版本的中文注释
 # 文件作用说明：
 # 本文件定义了 Camera 和 MiniCam 类，用于存储和管理相机的参数和投影矩阵。
 # 这些类用于处理渲染场景中的相机视角和投影转换。

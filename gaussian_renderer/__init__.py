@@ -15,7 +15,7 @@ import math
 from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianRasterizer
 from scene.gaussian_model import GaussianModel
 
-
+#CCHSTUDIO提供本版本的中文注释
 # 文件作用说明：
 # 本文件用于定义基于高斯模型的渲染功能，包括生成视角适应的神经高斯分布并进行场景渲染。
 # 主要函数有 generate_neural_gaussians 和 render，用于创建高斯对象和渲染场景，

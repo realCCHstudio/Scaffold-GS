@@ -9,20 +9,24 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
+#CCHSTUDIO提供本版本的中文注释
+# 文件作用说明：
+# 本脚本基于 MipNerF 360 提供的转换脚本，主要用于执行 COLMAP 操作，包括特征提取、特征匹配、捆绑调整、图像去畸变以及图像的缩放。该脚本适合批处理并支持 GPU 使用选项。
+
 import os
 import logging
 from argparse import ArgumentParser
 import shutil
 
-# This Python script is based on the shell converter script provided in the MipNerF 360 repository.
+# 定义并解析命令行参数
 parser = ArgumentParser("Colmap converter")
-parser.add_argument("--no_gpu", action='store_true')
-parser.add_argument("--skip_matching", action='store_true')
-parser.add_argument("--source_path", "-s", required=True, type=str)
-parser.add_argument("--camera", default="OPENCV", type=str)
-parser.add_argument("--colmap_executable", default="", type=str)
-parser.add_argument("--resize", action="store_true")
-parser.add_argument("--magick_executable", default="", type=str)
+parser.add_argument("--no_gpu", action='store_true', help="禁用 GPU 使用")
+parser.add_argument("--skip_matching", action='store_true', help="跳过特征匹配步骤")
+parser.add_argument("--source_path", "-s", required=True, type=str, help="输入数据的源路径")
+parser.add_argument("--camera", default="OPENCV", type=str, help="相机模型类型")
+parser.add_argument("--colmap_executable", default="", type=str, help="指定 COLMAP 可执行文件路径")
+parser.add_argument("--resize", action="store_true", help="对图像进行缩放处理")
+parser.add_argument("--magick_executable", default="", type=str, help="指定 ImageMagick 可执行文件路径")
 args = parser.parse_args()
 colmap_command = '"{}"'.format(args.colmap_executable) if len(args.colmap_executable) > 0 else "colmap"
 magick_command = '"{}"'.format(args.magick_executable) if len(args.magick_executable) > 0 else "magick"
@@ -31,7 +35,7 @@ use_gpu = 1 if not args.no_gpu else 0
 if not args.skip_matching:
     os.makedirs(args.source_path + "/distorted/sparse", exist_ok=True)
 
-    ## Feature extraction
+    ## 特征提取
     feat_extracton_cmd = colmap_command + " feature_extractor "\
         "--database_path " + args.source_path + "/distorted/database.db \
         --image_path " + args.source_path + "/input \
@@ -43,7 +47,7 @@ if not args.skip_matching:
         logging.error(f"Feature extraction failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
-    ## Feature matching
+    ## 特征匹配
     feat_matching_cmd = colmap_command + " exhaustive_matcher \
         --database_path " + args.source_path + "/distorted/database.db \
         --SiftMatching.use_gpu " + str(use_gpu)
@@ -52,9 +56,7 @@ if not args.skip_matching:
         logging.error(f"Feature matching failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
-    ### Bundle adjustment
-    # The default Mapper tolerance is unnecessarily large,
-    # decreasing it speeds up bundle adjustment steps.
+    ### 捆绑调整
     mapper_cmd = (colmap_command + " mapper \
         --database_path " + args.source_path + "/distorted/database.db \
         --image_path "  + args.source_path + "/input \
@@ -65,8 +67,7 @@ if not args.skip_matching:
         logging.error(f"Mapper failed with code {exit_code}. Exiting.")
         exit(exit_code)
 
-### Image undistortion
-## We need to undistort our images into ideal pinhole intrinsics.
+### 图像去畸变
 img_undist_cmd = (colmap_command + " image_undistorter \
     --image_path " + args.source_path + "/input \
     --input_path " + args.source_path + "/distorted/sparse/0 \
@@ -79,7 +80,7 @@ if exit_code != 0:
 
 files = os.listdir(args.source_path + "/sparse")
 os.makedirs(args.source_path + "/sparse/0", exist_ok=True)
-# Copy each file from the source directory to the destination directory
+# 将文件从源目录移动到目标目录
 for file in files:
     if file == '0':
         continue
@@ -87,19 +88,18 @@ for file in files:
     destination_file = os.path.join(args.source_path, "sparse", "0", file)
     shutil.move(source_file, destination_file)
 
+# 如果指定缩放选项，对图像进行不同比例缩放并存储到对应文件夹中
 if(args.resize):
     print("Copying and resizing...")
 
-    # Resize images.
     os.makedirs(args.source_path + "/images_2", exist_ok=True)
     os.makedirs(args.source_path + "/images_4", exist_ok=True)
     os.makedirs(args.source_path + "/images_8", exist_ok=True)
-    # Get the list of files in the source directory
     files = os.listdir(args.source_path + "/images")
-    # Copy each file from the source directory to the destination directory
     for file in files:
         source_file = os.path.join(args.source_path, "images", file)
 
+        # 复制和缩放图像
         destination_file = os.path.join(args.source_path, "images_2", file)
         shutil.copy2(source_file, destination_file)
         exit_code = os.system(magick_command + " mogrify -resize 50% " + destination_file)

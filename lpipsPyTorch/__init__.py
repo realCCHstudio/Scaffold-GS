@@ -1,7 +1,7 @@
 import torch
 from .modules.lpips import LPIPS
 
-
+#CCHSTUDIO提供本版本的中文注释
 # 文件作用说明：
 # 本文件用于实现 LPIPS (Learned Perceptual Image Patch Similarity) 指标计算。
 # 该指标用于衡量图像之间的感知相似度，提供 AlexNet、SqueezeNet 和 VGG 三种特征提取网络类型。

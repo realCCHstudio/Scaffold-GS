@@ -23,6 +23,7 @@ from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
 from scene.embedding import Embedding
 
+#CCHSTUDIO提供本版本的中文注释
 # 文件作用说明：
 # 本文件实现了 `GaussianModel` 类，用于表示场景中的高斯模型对象。该模型可以进行各种计算，包括
 # 生成、优化、更新和存储高斯对象的属性。主要用于场景渲染和三维场景表示学习。
