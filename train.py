@@ -9,7 +9,7 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件实现了整个模型的训练流程，包括训练、日志记录、渲染、评估和检查点保存。脚本通过命令行解析参数来配置训练过程，
 # 使用Tensorboard和wandb记录训练指标，并提供模型检查点和代码备份功能，适用于深度学习实验管理和复现。
@@ -25,7 +25,7 @@ os.environ['CUDA_VISIBLE_DEVICES']=str(np.argmin([int(x.split()[2]) for x in res
 
 os.system('echo $CUDA_VISIBLE_DEVICES')
 
-
+import re
 import torch
 import torchvision
 import json
@@ -60,6 +60,10 @@ try:
 except ImportError:
     TENSORBOARD_FOUND = False
     print("not found tf board")
+
+def sanitize_path(path: str) -> str:
+    """清理路径中的非法字符"""
+    return re.sub(r'[<>:"/\\|?*]', '_', path)
 
 def saveRuntimeCode(dst: str) -> None:
     """保存运行时代码，备份当前代码库以支持复现实验结果。
@@ -218,26 +222,44 @@ def prepare_output_and_logger(args):
     Returns:
         SummaryWriter: 用于Tensorboard的日志记录器。
     """
+    # 如果未指定模型路径，生成默认路径
     if not args.model_path:
         if os.getenv('OAR_JOB_ID'):
-            unique_str=os.getenv('OAR_JOB_ID')
+            unique_str = os.getenv('OAR_JOB_ID')
         else:
             unique_str = str(uuid.uuid4())
-        args.model_path = os.path.join("./output/", unique_str[0:10])
+        args.model_path = os.path.join("./output/", unique_str[:10])
 
-    # Set up output folder
-    print("Output folder: {}".format(args.model_path))
-    os.makedirs(args.model_path, exist_ok = True)
-    with open(os.path.join(args.model_path, "cfg_args"), 'w') as cfg_log_f:
-        cfg_log_f.write(str(Namespace(**vars(args))))
+    # 合法化路径
+    args.model_path = sanitize_path(args.model_path)
 
-    # Create Tensorboard writer
+    # 设置输出文件夹
+    print(f"Output folder: {args.model_path}")
+    os.makedirs(args.model_path, exist_ok=True)
+
+    # 保存命令行参数到配置文件
+    config_path = os.path.join(args.model_path, "cfg_args")
+    try:
+        with open(config_path, 'w') as cfg_log_f:
+            cfg_log_f.write(str(Namespace(**vars(args))))
+    except OSError as e:
+        print(f"Error writing configuration file: {config_path}")
+        print(e)
+        raise
+
+    # 创建 Tensorboard 日志记录器
     tb_writer = None
     if TENSORBOARD_FOUND:
-        tb_writer = SummaryWriter(args.model_path)
+        try:
+            tb_writer = SummaryWriter(args.model_path)
+        except Exception as e:
+            print("Error initializing Tensorboard SummaryWriter:")
+            print(e)
     else:
         print("Tensorboard not available: not logging progress")
+
     return tb_writer
+
 
 def training_report(tb_writer, dataset_name, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, renderFunc, renderArgs, wandb=None, logger=None):
     """在训练过程中记录各种评估指标到日志、WandB和Tensorboard。
@@ -572,14 +594,24 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
 
-    # 启动日志记录器
-    model_path = args.model_path
+
+    # CCHSTUDIO 原创代码块
+    # 替换路径中的非法字符
+    def sanitize_path(path: str) -> str:
+        # 替换非法字符 ":" 为合法字符 "-"
+        return path.replace(":", "-").replace("?", "_")
+
+
+    # 启动日志记录器并合法化路径
+    model_path = sanitize_path(args.model_path)
     os.makedirs(model_path, exist_ok=True)
 
     logger = get_logger(model_path)
-
-
     logger.info(f'args: {args}')
+
+
+
+
 
     # 配置GPU
     if args.gpu != '-1':

@@ -3,7 +3,7 @@ import torch.nn as nn
 from .networks import get_network, LinLayers
 from .utils import get_state_dict
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件实现了 LPIPS (Learned Perceptual Image Patch Similarity) 计算标准，使用指定的预训练网络对图像进行特征提取，
 # 然后通过线性层计算图像的感知差异，输出最终的感知距离。

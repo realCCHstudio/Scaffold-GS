@@ -13,7 +13,7 @@ from argparse import ArgumentParser, Namespace
 import sys
 import os
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件用于定义参数组类及相关方法，提供加载、解析和管理程序的运行参数功能。
 # 包括模型、优化、以及管道执行相关的参数组，支持从命令行和配置文件中获取参数。

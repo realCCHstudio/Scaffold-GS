@@ -9,7 +9,7 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本脚本基于 MipNerF 360 提供的转换脚本，主要用于执行 COLMAP 操作，包括特征提取、特征匹配、捆绑调整、图像去畸变以及图像的缩放。该脚本适合批处理并支持 GPU 使用选项。
 

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import torch
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件包含用于 LPIPS 计算的辅助工具函数，包括激活标准化和预训练模型权重下载。
 

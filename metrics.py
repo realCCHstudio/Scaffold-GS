@@ -9,7 +9,7 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件用于计算图像质量评估指标，包括 SSIM、PSNR 和 LPIPS，用于量化渲染图像与真实图像的相似性。
 # 支持批量处理多个模型和场景，并将结果保存为 JSON 文件，便于分析。

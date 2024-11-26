@@ -9,7 +9,7 @@
 # For inquiries contact  george.drettakis@inria.fr
 #
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件实现了渲染系统，提供渲染视图数据集的功能，包括渲染图像与真实图像的保存。
 # 支持训练集与测试集的渲染，并记录帧率（FPS）信息，便于性能评估。

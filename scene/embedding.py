@@ -7,7 +7,7 @@ from typing import Optional
 from jaxtyping import Shaped
 from torch import Tensor, nn
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件定义了字段组件和嵌入类，支持输入数据的嵌入表示，提供通用的字段组件框架以及可用于场景生成的嵌入层。
 

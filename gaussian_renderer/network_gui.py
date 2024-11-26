@@ -15,7 +15,7 @@ import socket
 import json
 from scene.cameras import MiniCam
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件提供了一个 GUI 网络接口，用于监听来自客户端的连接，并接收和解析摄像机参数。
 # 通过 socket 连接，接受客户端传入的渲染配置信息，以实现实时渲染控制。

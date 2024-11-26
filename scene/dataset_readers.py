@@ -31,7 +31,7 @@ from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
 import cv2
 
-#CCHSTUDIO提供本版本的中文注释
+# CCHSTUDIO 提供本版本的中文注释
 # 文件作用说明：
 # 本文件实现了场景数据读取器，支持加载 Colmap 和 Blender 格式的场景。
 # 主要功能包括相机参数解析、三维点云加载与存储等。

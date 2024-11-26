@@ -1,0 +1,6 @@
+einops
+wandb
+lpips
+laspy
+submodules/diff-gaussian-rasterization
+submodules/simple-knn
